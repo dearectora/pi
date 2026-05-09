@@ -143,8 +143,8 @@ public struct Context: Sendable {
 
 // MARK: - Model
 
-public struct Model: Sendable {
-    public struct Cost: Sendable {
+public struct Model: Sendable, Codable {
+    public struct Cost: Sendable, Codable {
         /// USD per million tokens
         public var input: Double
         public var output: Double

@@ -13,7 +13,8 @@ let package = Package(
     targets: [
         .target(
             name: "WispAI",
-            path: "Sources/WispAI"
+            path: "Sources/WispAI",
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "WispAITests",
