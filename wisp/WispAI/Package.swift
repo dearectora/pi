@@ -2,23 +2,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "Wisp",
+    name: "WispAI",
     platforms: [
         .macOS(.v13),
         .iOS(.v16),
     ],
     products: [
-        .library(name: "Wisp", targets: ["Wisp"]),
+        .library(name: "WispAI", targets: ["WispAI"]),
     ],
     targets: [
         .target(
-            name: "Wisp",
-            path: "Sources/Wisp"
+            name: "WispAI",
+            path: "Sources/WispAI"
         ),
         .testTarget(
-            name: "WispTests",
-            dependencies: ["Wisp"],
-            path: "Tests/WispTests"
+            name: "WispAITests",
+            dependencies: ["WispAI"],
+            path: "Tests/WispAITests"
         ),
     ]
 )

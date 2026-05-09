@@ -1,16 +1,16 @@
 import Foundation
 
-/// Wisp — lightweight OpenAI-compatible LLM client.
+/// WispAI — lightweight OpenAI-compatible LLM client.
 ///
 /// Usage:
 /// ```swift
-/// let msg = await Wisp.complete(
+/// let msg = await WispAI.complete(
 ///     model: .gpt4oMini,
 ///     context: Context(messages: [.user(UserMessage(text: "Hi!"))]),
 ///     options: StreamOptions(apiKey: "sk-...")
 /// )
 /// ```
-public enum Wisp {
+public enum WispAI {
 
     private static let provider = OpenAIProvider()
 

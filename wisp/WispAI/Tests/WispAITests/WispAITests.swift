@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import WispAI
 
 final class ConvertMessagesTests: XCTestCase {
 
