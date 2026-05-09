@@ -143,6 +143,20 @@ public extension Model {
         cost: .init(input: 0.10, output: 0.10)
     )
 
+    // MARK: - Faux (testing)
+
+    /// In-memory mock model for use with FauxProvider in tests.
+    static let faux = Model(
+        id: "faux-1",
+        name: "Faux Model",
+        provider: "faux",
+        baseUrl: "http://localhost:0",
+        contextWindow: 128_000,
+        maxTokens: 16_384,
+        cost: .init(input: 0, output: 0),
+        supportsThinking: true
+    )
+
     // MARK: - OpenRouter (gateway to many providers)
 
     static func openRouter(
