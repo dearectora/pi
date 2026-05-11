@@ -64,6 +64,8 @@ public struct AssistantMessage: Sendable {
     public var stopReason: StopReason
     public var errorMessage: String?
     public var timestamp: Date
+    /// Structured diagnostic records attached during streaming or error handling.
+    public var diagnostics: [AssistantMessageDiagnostic]
 
     public init(
         content: [Content] = [],
@@ -72,7 +74,8 @@ public struct AssistantMessage: Sendable {
         usage: Usage = .zero,
         stopReason: StopReason = .stop,
         errorMessage: String? = nil,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        diagnostics: [AssistantMessageDiagnostic] = []
     ) {
         self.content = content
         self.model = model
@@ -81,6 +84,7 @@ public struct AssistantMessage: Sendable {
         self.stopReason = stopReason
         self.errorMessage = errorMessage
         self.timestamp = timestamp
+        self.diagnostics = diagnostics
     }
 }
 

@@ -186,10 +186,15 @@ public actor FauxProvider {
         continuation: AsyncStream<AssistantMessageEvent>.Continuation
     ) async {
         guard let step else {
-            let err = AssistantMessage(
+            var err = AssistantMessage(
                 model: model.id, provider: model.provider,
                 stopReason: .error,
                 errorMessage: "No more faux responses queued (call #\(callCount))"
+            )
+            err.appendDiagnostic(
+                type: "no_response_queued",
+                message: "FauxProvider response queue was empty",
+                details: ["callCount": "\(callCount)"]
             )
             continuation.yield(.error(message: err))
             continuation.finish()
@@ -296,10 +301,18 @@ public actor FauxProvider {
             }
         }
 
-        if message.stopReason == .error || message.stopReason == .aborted {
-            continuation.yield(.error(message: message))
+        var final = message
+        if final.stopReason == .error || final.stopReason == .aborted {
+            if final.diagnostics.isEmpty {
+                let diagType = final.stopReason == .aborted ? "request_cancelled" : "faux_error"
+                final.appendDiagnostic(
+                    type: diagType,
+                    message: final.errorMessage ?? "Response had stop reason \(final.stopReason.rawValue)"
+                )
+            }
+            continuation.yield(.error(message: final))
         } else {
-            continuation.yield(.done(message: message))
+            continuation.yield(.done(message: final))
         }
         continuation.finish()
     }

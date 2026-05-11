@@ -223,7 +223,13 @@ public struct OpenAIProvider: Sendable {
             if http.statusCode != 200 {
                 var body = ""
                 for try await byte in asyncBytes { body.append(Character(UnicodeScalar(byte))) }
-                throw WispError.httpError(statusCode: http.statusCode, body: body)
+                let httpError = WispError.httpError(statusCode: http.statusCode, body: body)
+                output.appendDiagnostic(
+                    type: "http_error",
+                    error: httpError,
+                    details: ["statusCode": "\(http.statusCode)", "url": request.url?.absoluteString ?? ""]
+                )
+                throw httpError
             }
 
             continuation.yield(.start(partial: output))
@@ -351,8 +357,31 @@ public struct OpenAIProvider: Sendable {
             }
 
         } catch {
-            output.stopReason   = Task.isCancelled ? .aborted : .error
+            let cancelled = Task.isCancelled
+            output.stopReason   = cancelled ? .aborted : .error
             output.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+
+            // Only append a new diagnostic if one was not already recorded above (e.g. http_error).
+            if output.diagnostics.isEmpty {
+                let diagType: String
+                var details: [String: String] = [:]
+                switch error {
+                case WispError.invalidURL(let url):
+                    diagType = "invalid_url"
+                    details["url"] = url
+                case WispError.invalidResponse:
+                    diagType = "invalid_response"
+                case WispError.cancelled:
+                    diagType = "request_cancelled"
+                default:
+                    diagType = cancelled ? "request_cancelled" : "network_error"
+                    if let urlError = error as? URLError {
+                        details["code"] = "\(urlError.code.rawValue)"
+                    }
+                }
+                output.appendDiagnostic(type: diagType, error: error, details: details)
+            }
+
             continuation.yield(.error(message: output))
         }
 
