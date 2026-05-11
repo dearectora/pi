@@ -209,9 +209,7 @@ public struct OpenAIProvider: Sendable {
         var output = AssistantMessage(model: model.id, provider: model.provider)
 
         do {
-            let apiKey = options?.apiKey
-                ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
-                ?? ""
+            let apiKey = resolveApiKey(from: options, provider: model.provider)
 
             let request = try buildRequest(model: model, context: context, options: options, apiKey: apiKey)
             let (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
@@ -386,6 +384,19 @@ public struct OpenAIProvider: Sendable {
         }
 
         continuation.finish()
+    }
+
+    // MARK: - API key resolution
+
+    /// Resolves the API key using the priority:
+    /// 1. Caller-supplied (options.apiKey)
+    /// 2. Well-known env var for the provider (e.g. DEEPSEEK_API_KEY)
+    /// 3. OPENAI_API_KEY legacy fallback
+    private func resolveApiKey(from options: StreamOptions?, provider: String) -> String {
+        if let key = options?.apiKey, !key.isEmpty { return key }
+        if let envVar = SettingsManager.envVarName(for: provider),
+           let env = ProcessInfo.processInfo.environment[envVar], !env.isEmpty { return env }
+        return ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? ""
     }
 
     // MARK: - Request builder
