@@ -19,6 +19,9 @@ struct Args {
     /// Output mode: text (default) or json (--mode json / --json)
     var jsonMode: Bool = false
 
+    /// Disable JSONL session logging (--no-log)
+    var noLog: Bool = false
+
     /// Prompt collected from positional arguments.
     /// nil means "read from stdin".
     var prompt: String?
@@ -51,6 +54,9 @@ struct Args {
 
             case "--json":
                 jsonMode = true
+
+            case "--no-log":
+                noLog = true
 
             case "-m", "--model",
                  "-p", "--provider",
@@ -116,6 +122,7 @@ func printHelp() {
           --max-tokens <n>     Maximum output tokens
           --mode <text|json>   Output mode (default: text)
           --json               Shorthand for --mode json
+          --no-log             Disable JSONL session logging
       -h, --help               Show this help
       -v, --version            Show version
 

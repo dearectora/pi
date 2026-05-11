@@ -58,12 +58,35 @@ struct WispCLI {
             }
         }
 
+        // Open session logger (unless --no-log).
+        let logger: SessionLogger? = args.noLog ? nil : {
+            do {
+                return try SessionLogger.open(model: model)
+            } catch {
+                fputs("Warning: could not open session log: \(error)\n", stderr)
+                return nil
+            }
+        }()
+
+        // Log the user message.
+        if let logger {
+            do { try await logger.logUserMessage(text: prompt) }
+            catch { fputs("Warning: session log write failed: \(error)\n", stderr) }
+        }
+
         let ctx = Context(messages: [.user(UserMessage(text: prompt))])
         let stream = WispAI.stream(model: model, context: ctx, options: options)
 
-        let exitCode = args.jsonMode
+        let (exitCode, finalMessage) = args.jsonMode
             ? await runJsonMode(stream: stream)
             : await runTextMode(stream: stream)
+
+        // Log the assistant message.
+        if let logger, let msg = finalMessage {
+            do { try await logger.logAssistantMessage(msg) }
+            catch { fputs("Warning: session log write failed: \(error)\n", stderr) }
+            await logger.close()
+        }
 
         exit(exitCode)
     }

@@ -4,11 +4,11 @@ import WispAI
 // MARK: - Text mode (streaming)
 
 /// Streams text deltas to stdout as they arrive.
-/// Prints a trailing newline after the final token and exits with 0.
-/// On error exits with 1.
+/// Prints a trailing newline after the final token.
+/// Returns (exitCode, finalMessage).
 func runTextMode(
     stream: AsyncStream<AssistantMessageEvent>
-) async -> Int32 {
+) async -> (Int32, AssistantMessage?) {
     var hadText = false
     for await event in stream {
         switch event {
@@ -19,42 +19,45 @@ func runTextMode(
         case .thinkingDelta(_, let delta, _):
             // Print thinking to stderr so it doesn't pollute stdout pipeline.
             fputs(delta, stderr)
-        case .done:
+        case .done(let msg):
             if hadText { print() } // trailing newline
-            return 0
+            return (0, msg)
         case .error(let msg):
             let desc = msg.errorMessage ?? "unknown error"
             fputs("\nError: \(desc)\n", stderr)
             if let diag = msg.diagnostics.first {
                 fputs("  [\(diag.type)] \(diag.error?.message ?? "")\n", stderr)
             }
-            return 1
+            return (1, msg)
         default:
             break
         }
     }
-    return 0
+    return (0, nil)
 }
 
 // MARK: - JSON mode (newline-delimited)
 
 /// Emits one JSON object per line to stdout for every event.
 /// Mirrors the --mode json output of the original pi coding-agent.
+/// Returns (exitCode, finalMessage).
 func runJsonMode(
     stream: AsyncStream<AssistantMessageEvent>
-) async -> Int32 {
+) async -> (Int32, AssistantMessage?) {
     var exitCode: Int32 = 0
+    var finalMessage: AssistantMessage?
     for await event in stream {
         if let line = encodeEvent(event) {
             print(line)
             flushStdout()
         }
         switch event {
-        case .error: exitCode = 1
+        case .done(let msg):  finalMessage = msg
+        case .error(let msg): exitCode = 1; finalMessage = msg
         default: break
         }
     }
-    return exitCode
+    return (exitCode, finalMessage)
 }
 
 // MARK: - Event → JSON
