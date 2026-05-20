@@ -1,28 +1,11 @@
 // Package wispai is an OpenAI-compatible LLM streaming client.
 package wispai
 
-import (
-	"context"
-	"sync"
-)
+import "context"
 
-var (
-	mu      sync.RWMutex
-	_config *Config
-)
-
-func init() {
-	cfg := loadConfig(ModelsPath())
-	mu.Lock()
-	_config = cfg
-	mu.Unlock()
-}
-
-// GetConfig returns the current global Config loaded from models.json.
+// GetConfig loads and returns the Config from models.json.
 func GetConfig() *Config {
-	mu.RLock()
-	defer mu.RUnlock()
-	return _config
+	return loadConfig(ModelsPath())
 }
 
 // Stream starts a streaming request. The returned channel is closed after
