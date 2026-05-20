@@ -12,8 +12,3 @@ type Model struct {
 	SupportsThinking bool
 }
 
-// ModelCost is per-million-token pricing.
-type ModelCost struct {
-	Input  float64
-	Output float64
-}
