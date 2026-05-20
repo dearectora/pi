@@ -26,9 +26,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load settings (global ~/.pi/agent/settings.json + project .pi/settings.json).
+	// Load settings and models (global ~/.pi/agent/settings.json +
+	// project .pi/settings.json + ~/.pi/agent/models.json).
 	wispai.ReloadSettings("", "")
 	settings := wispai.GetSettings()
+
+	// Surface any models.json parse error early.
+	if err := wispai.GetLoadError(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading models.json: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Resolve prompt: argument > stdin.
 	prompt := args.Prompt
@@ -45,7 +52,11 @@ func main() {
 	}
 
 	// Resolve model.
-	model := resolveModel(args, settings)
+	model, err := resolveModel(args, settings)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
 
 	// Build and resolve stream options.
 	callerOpts := &wispai.StreamOptions{
@@ -59,11 +70,17 @@ func main() {
 	if opts.APIKey == "" {
 		if envVar := wispai.EnvVarName(model.Provider); envVar != "" {
 			fmt.Fprintf(os.Stderr,
-				"Error: no API key found for provider %q.\nSet %s or add it to ~/.pi/agent/settings.json under apiKeys.\n",
+				"Error: no API key found for provider %q.\n"+
+					"Set %s, add it to ~/.pi/agent/settings.json under apiKeys,\n"+
+					"or add \"apiKey\" to the provider entry in ~/.pi/agent/models.json.\n",
 				model.Provider, envVar,
 			)
-			os.Exit(1)
+		} else {
+			fmt.Fprintf(os.Stderr,
+				"Error: no API key found for provider %q.\n", model.Provider,
+			)
 		}
+		os.Exit(1)
 	}
 
 	// Open session logger (skipped with --no-log).
@@ -107,14 +124,24 @@ func main() {
 	os.Exit(exitCode)
 }
 
-// resolveModel selects a model in priority order:
-//  1. --provider + --model  (exact match in registry)
-//  2. --model only          (first match by id)
+// resolveModel picks a model from the registry in priority order:
+//  1. --provider + --model  (exact match)
+//  2. --model only          (first match by id across all providers)
 //  3. --provider only       (first model for that provider)
-//  4. settings defaults
-//  5. fallback: gpt-4o-mini
-func resolveModel(args Args, settings *wispai.SettingsManager) wispai.Model {
-	registry := wispai.NewRegistry()
+//  4. settings defaultProvider + defaultModel
+//  5. first model in registry
+func resolveModel(args Args, settings *wispai.SettingsManager) (wispai.Model, error) {
+	registry := wispai.GetRegistry()
+
+	if len(registry.All()) == 0 {
+		return wispai.Model{}, fmt.Errorf(
+			"no models loaded.\n\n"+
+				"Create %s with your model configuration, for example:\n\n"+
+				"%s",
+			wispai.ModelsPath(),
+			modelsJSONExample(),
+		)
+	}
 
 	provider := args.Provider
 	modelID := args.Model
@@ -127,20 +154,42 @@ func resolveModel(args Args, settings *wispai.SettingsManager) wispai.Model {
 
 	if provider != "" && modelID != "" {
 		if m, ok := registry.Find(provider, modelID); ok {
-			return m
+			return m, nil
 		}
 	}
 	if modelID != "" {
 		if m, ok := registry.FindByID(modelID); ok {
-			return m
+			return m, nil
 		}
 	}
 	if provider != "" {
 		if models := registry.ForProvider(provider); len(models) > 0 {
-			return models[0]
+			return models[0], nil
 		}
 	}
-	return wispai.GPT4oMini
+
+	// No specific model requested — use first available.
+	return registry.All()[0], nil
+}
+
+func modelsJSONExample() string {
+	return strings.TrimSpace(`
+{
+  "providers": {
+    "openai": {
+      "models": [
+        {
+          "id": "gpt-4o-mini",
+          "name": "GPT-4o Mini",
+          "contextWindow": 128000,
+          "maxTokens": 16384,
+          "cost": { "input": 0.15, "output": 0.60 }
+        }
+      ]
+    }
+  }
+}
+`) + "\n"
 }
 
 func isTTY() bool {
