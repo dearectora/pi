@@ -8,8 +8,9 @@ CLI-агент для работы с кодом через любой OpenAI-с
 - Linux (POSIX)
 - clang или gcc
 - `curl` в PATH (используется для HTTP-запросов)
-- libcjson (`apt install libcjson-dev`)
 - pthreads (входит в libc)
+
+cJSON [бандлится в репозитории](src/cJSON.c) — внешних зависимостей нет.
 
 ## Сборка
 

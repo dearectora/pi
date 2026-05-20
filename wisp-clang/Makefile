@@ -1,6 +1,6 @@
 CC = clang
 CFLAGS = -O2 -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700
-LDFLAGS = -lcjson -lpthread
+LDFLAGS = -lpthread
 SRCS = $(wildcard src/*.c)
 TARGET = wisp
 
