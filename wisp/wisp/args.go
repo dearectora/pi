@@ -16,6 +16,7 @@ type Args struct {
 	Temperature *float64
 	MaxTokens   *int
 	JSONMode    bool
+	RPCMode     bool
 	NoLog       bool
 	Prompt      string // empty means "read from stdin"
 	Warnings    []string
@@ -94,8 +95,10 @@ func consumeFlag(a *Args, flag, value string) {
 			a.JSONMode = true
 		case "text":
 			// default, nothing to do
+		case "rpc":
+			a.RPCMode = true
 		default:
-			a.Warnings = append(a.Warnings, "unknown mode: "+value+" (use text or json)")
+			a.Warnings = append(a.Warnings, "unknown mode: "+value+" (use text, json, or rpc)")
 		}
 	}
 }
@@ -108,7 +111,7 @@ Options:
   -p, --provider <name>    Provider (e.g. openai, deepseek, groq)
       --temperature <n>    Sampling temperature 0.0–2.0
       --max-tokens <n>     Maximum output tokens
-      --mode <text|json>   Output mode (default: text)
+      --mode <mode>        Output mode: text (default), json, rpc
       --json               Shorthand for --mode json
       --no-log             Disable JSONL session logging
   -h, --help               Show this help
@@ -116,11 +119,21 @@ Options:
 
 Input:
   Pass the prompt as a positional argument, or pipe it via stdin.
+  In rpc mode, commands are read from stdin as JSON Lines.
 
 Settings:
-  ~/.pi/agent/settings.json   Global (defaultModel, defaultProvider, apiKeys…)
-  ~/.pi/agent/models.json     Model definitions and provider API keys
-  .pi/settings.json           Project-local overrides
+  ~/.pi/agent/models.json     Model definitions, provider API keys, defaults
+
+RPC mode commands (stdin JSON Lines):
+  { "type": "prompt", "message": "..." }
+  { "type": "follow_up", "message": "..." }
+  { "type": "abort" }
+  { "type": "new_session" }
+  { "type": "get_state" }
+  { "type": "get_messages" }
+  { "type": "set_model", "provider": "openai", "modelId": "gpt-4o" }
+  { "type": "get_available_models" }
+  { "type": "set_system_prompt", "systemPrompt": "..." }
 
 Examples:
   wisp "What is the capital of France?"
@@ -128,6 +141,7 @@ Examples:
   wisp -p groq -m llama-3.3-70b-versatile "Explain monads"
   echo "Summarise this text" | wisp
   wisp --mode json "Tell me a joke"
+  wisp --mode rpc
   wisp --temperature 0.2 --max-tokens 256 "Write a haiku"
 `)
 }

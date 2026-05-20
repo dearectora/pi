@@ -72,6 +72,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// RPC mode: read commands from stdin, write events to stdout.
+	if args.RPCMode {
+		wispai.RunRPC(context.Background(), config, model, opts, nil, nil, os.Stdin, os.Stdout)
+		os.Exit(0)
+	}
+
 	// Open session logger (skipped with --no-log).
 	var logger *SessionLogger
 	if !args.NoLog {

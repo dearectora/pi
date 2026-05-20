@@ -13,6 +13,11 @@ type ToolHandler func(ctx context.Context, id, name, arguments string) (string, 
 // AgentOptions configures the agent loop.
 type AgentOptions struct {
 	MaxSteps int // maximum number of model calls before giving up (default: 10)
+
+	// OnStep is called after each agent step with the messages appended to
+	// history in that step (assistant message + any tool results). Use this
+	// to track the full conversation history from outside the loop.
+	OnStep func(added []ContextMessage)
 }
 
 // RunAgent runs the agent loop: it calls the model repeatedly, executing tool
@@ -79,7 +84,7 @@ func runAgentLoop(
 		}
 
 		// Add assistant message with tool calls to history.
-		cur.Messages = append(cur.Messages, AssistantMsg(finalMsg))
+		added := []ContextMessage{AssistantMsg(finalMsg)}
 
 		// Execute each tool call and append its result.
 		for _, part := range finalMsg.Content {
@@ -90,7 +95,12 @@ func runAgentLoop(
 			if err != nil {
 				result = "error: " + err.Error()
 			}
-			cur.Messages = append(cur.Messages, ToolResultMsg(part.ID, result))
+			added = append(added, ToolResultMsg(part.ID, result))
+		}
+
+		cur.Messages = append(cur.Messages, added...)
+		if agentOpts != nil && agentOpts.OnStep != nil {
+			agentOpts.OnStep(added)
 		}
 	}
 
