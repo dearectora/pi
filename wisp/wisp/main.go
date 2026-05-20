@@ -60,26 +60,19 @@ func main() {
 
 	// Build and resolve stream options.
 	callerOpts := &wispai.StreamOptions{
-		APIKey:      args.APIKey,
 		Temperature: args.Temperature,
 		MaxTokens:   args.MaxTokens,
 	}
 	opts := settings.Resolve(callerOpts, model)
 
-	// Validate API key presence.
+	// Validate that we have an API key.
 	if opts.APIKey == "" {
-		if envVar := wispai.EnvVarName(model.Provider); envVar != "" {
-			fmt.Fprintf(os.Stderr,
-				"Error: no API key found for provider %q.\n"+
-					"Set %s, add it to ~/.pi/agent/settings.json under apiKeys,\n"+
-					"or add \"apiKey\" to the provider entry in ~/.pi/agent/models.json.\n",
-				model.Provider, envVar,
-			)
-		} else {
-			fmt.Fprintf(os.Stderr,
-				"Error: no API key found for provider %q.\n", model.Provider,
-			)
-		}
+		fmt.Fprintf(os.Stderr,
+			"Error: no API key found for provider %q.\n"+
+				"Add it to ~/.pi/agent/settings.json under apiKeys\n"+
+				"or as \"apiKey\" in the provider entry in ~/.pi/agent/models.json.\n",
+			model.Provider,
+		)
 		os.Exit(1)
 	}
 

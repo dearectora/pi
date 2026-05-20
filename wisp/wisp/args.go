@@ -13,7 +13,6 @@ type Args struct {
 	Version     bool
 	Model       string
 	Provider    string
-	APIKey      string
 	Temperature *float64
 	MaxTokens   *int
 	JSONMode    bool
@@ -48,7 +47,6 @@ func parseArgs(argv []string) Args {
 			a.NoLog = true
 		case "-m", "--model",
 			"-p", "--provider",
-			"-k", "--api-key",
 			"--temperature", "--max-tokens",
 			"--mode":
 			if i+1 < len(argv) {
@@ -78,8 +76,6 @@ func consumeFlag(a *Args, flag, value string) {
 		a.Model = value
 	case "-p", "--provider":
 		a.Provider = value
-	case "-k", "--api-key":
-		a.APIKey = value
 	case "--temperature":
 		if v, err := strconv.ParseFloat(value, 64); err == nil {
 			a.Temperature = &v
@@ -110,7 +106,6 @@ func printHelp() {
 Options:
   -m, --model <id>         Model id (e.g. gpt-4o-mini, deepseek-reasoner)
   -p, --provider <name>    Provider (e.g. openai, deepseek, groq)
-  -k, --api-key <key>      API key (overrides settings and env var)
       --temperature <n>    Sampling temperature 0.0–2.0
       --max-tokens <n>     Maximum output tokens
       --mode <text|json>   Output mode (default: text)
@@ -124,11 +119,8 @@ Input:
 
 Settings:
   ~/.pi/agent/settings.json   Global (defaultModel, defaultProvider, apiKeys…)
+  ~/.pi/agent/models.json     Model definitions and provider API keys
   .pi/settings.json           Project-local overrides
-
-Environment variables:
-  OPENAI_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, XAI_API_KEY,
-  MINIMAX_API_KEY, CEREBRAS_API_KEY, OPENROUTER_API_KEY, …
 
 Examples:
   wisp "What is the capital of France?"

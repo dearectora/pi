@@ -162,49 +162,13 @@ func loadSettingsFile(path string) (Settings, error) {
 	return s, nil
 }
 
-// EnvVarName returns the environment variable name for the given provider's
-// API key, or "" for local providers that do not need a key.
-func EnvVarName(provider string) string {
-	switch strings.ToLower(provider) {
-	case "ollama", "lm-studio", "faux":
-		return ""
-	case "openai":
-		return "OPENAI_API_KEY"
-	case "deepseek":
-		return "DEEPSEEK_API_KEY"
-	case "groq":
-		return "GROQ_API_KEY"
-	case "xai":
-		return "XAI_API_KEY"
-	case "minimax":
-		return "MINIMAX_API_KEY"
-	case "cerebras":
-		return "CEREBRAS_API_KEY"
-	case "openrouter":
-		return "OPENROUTER_API_KEY"
-	case "anthropic":
-		return "ANTHROPIC_API_KEY"
-	case "google":
-		return "GEMINI_API_KEY"
-	}
-	// Generic fallback: my-provider → MY_PROVIDER_API_KEY
-	upper := strings.ToUpper(strings.ReplaceAll(provider, "-", "_"))
-	return upper + "_API_KEY"
-}
-
-// APIKey resolves the API key for a provider using the priority:
-// callerKey > settings file > environment variable.
-func (m *SettingsManager) APIKey(provider, callerKey string) string {
-	if callerKey != "" {
-		return callerKey
-	}
+// APIKey resolves the API key for a provider from settings files only.
+// Priority: settings.json apiKeys > models.json provider apiKey.
+func (m *SettingsManager) APIKey(provider string) string {
 	if m.Settings.APIKeys != nil {
 		if key, ok := m.Settings.APIKeys[strings.ToLower(provider)]; ok && key != "" {
 			return key
 		}
-	}
-	if envVar := EnvVarName(provider); envVar != "" {
-		return os.Getenv(envVar)
 	}
 	return ""
 }
@@ -217,7 +181,7 @@ func (m *SettingsManager) Resolve(opts *StreamOptions, model Model) StreamOption
 		out = *opts
 	}
 	if out.APIKey == "" {
-		out.APIKey = m.APIKey(model.Provider, "")
+		out.APIKey = m.APIKey(model.Provider)
 	}
 	if m.Settings.Stream != nil {
 		if out.Temperature == nil {

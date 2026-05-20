@@ -9,13 +9,6 @@ cd wisp/wisp
 go build -o wisp .
 ```
 
-## Быстрый старт
-
-```bash
-export OPENAI_API_KEY=sk-...
-./wisp "Привет!"
-```
-
 ---
 
 ## Конфигурация
@@ -37,36 +30,9 @@ mkdir -p ~/.pi/agent
 
 ## API ключи
 
-Три способа указать ключ (в порядке приоритета):
+Ключи указываются только через файлы конфигурации. Два места:
 
-### 1. Флаг `--api-key` (на один запрос)
-
-```bash
-./wisp --api-key sk-... "Вопрос"
-```
-
-### 2. Переменная окружения
-
-```bash
-export OPENAI_API_KEY=sk-...
-export DEEPSEEK_API_KEY=sk-...
-export GROQ_API_KEY=gsk_...
-```
-
-Полный список переменных:
-
-| Провайдер | Переменная |
-|---|---|
-| openai | `OPENAI_API_KEY` |
-| deepseek | `DEEPSEEK_API_KEY` |
-| groq | `GROQ_API_KEY` |
-| xai | `XAI_API_KEY` |
-| minimax | `MINIMAX_API_KEY` |
-| cerebras | `CEREBRAS_API_KEY` |
-| openrouter | `OPENROUTER_API_KEY` |
-| anthropic | `ANTHROPIC_API_KEY` |
-
-### 3. Файл `~/.pi/agent/settings.json`
+### `~/.pi/agent/settings.json`
 
 ```json
 {
@@ -80,6 +46,21 @@ export GROQ_API_KEY=gsk_...
 }
 ```
 
+### `~/.pi/agent/models.json` — поле `apiKey` у провайдера
+
+```json
+{
+  "providers": {
+    "openai": {
+      "apiKey": "sk-...",
+      "models": [...]
+    }
+  }
+}
+```
+
+Если ключ задан в обоих файлах — `settings.json` побеждает.
+
 ---
 
 ## Модели: `~/.pi/agent/models.json`
@@ -92,6 +73,7 @@ export GROQ_API_KEY=gsk_...
 {
   "providers": {
     "openai": {
+      "apiKey": "sk-...",
       "models": [
         {
           "id": "gpt-4o-mini",
@@ -111,7 +93,7 @@ export GROQ_API_KEY=gsk_...
 | Поле | Обязательное | Описание |
 |---|---|---|
 | `baseUrl` | нет | URL API. Если не указан, модель должна задать свой |
-| `apiKey` | нет | API ключ (переопределяется env-переменной и `settings.json`) |
+| `apiKey` | нет | API ключ провайдера |
 | `models` | да | Список моделей |
 
 ### Поля модели
@@ -137,6 +119,7 @@ export GROQ_API_KEY=gsk_...
 {
   "providers": {
     "openai": {
+      "apiKey": "sk-...",
       "models": [
         {
           "id": "gpt-4o",
@@ -155,6 +138,7 @@ export GROQ_API_KEY=gsk_...
       ]
     },
     "deepseek": {
+      "apiKey": "sk-...",
       "models": [
         {
           "id": "deepseek-chat",
@@ -236,8 +220,6 @@ LM Studio поднимает сервер на `http://localhost:1234/v1`.
 
 ### Прокси / корпоративный шлюз
 
-Когда нужно подменить базовый URL, но использовать те же модели OpenAI:
-
 ```json
 {
   "providers": {
@@ -264,17 +246,18 @@ LM Studio поднимает сервер на `http://localhost:1234/v1`.
   "providers": {
     "openrouter": {
       "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKey": "sk-or-...",
       "models": [
         {
           "id": "meta-llama/llama-3.3-70b-instruct",
-          "name": "Llama 3.3 70B (OpenRouter)",
+          "name": "Llama 3.3 70B",
           "contextWindow": 128000,
           "maxTokens": 32768,
           "cost": { "input": 0.10, "output": 0.30 }
         },
         {
           "id": "google/gemini-2.5-flash",
-          "name": "Gemini 2.5 Flash (OpenRouter)",
+          "name": "Gemini 2.5 Flash",
           "contextWindow": 1000000,
           "maxTokens": 8192,
           "cost": { "input": 0.15, "output": 0.60 }
@@ -286,7 +269,6 @@ LM Studio поднимает сервер на `http://localhost:1234/v1`.
 ```
 
 ```bash
-export OPENROUTER_API_KEY=sk-or-...
 ./wisp -p openrouter -m "meta-llama/llama-3.3-70b-instruct" "Привет"
 ```
 
