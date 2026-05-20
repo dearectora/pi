@@ -74,7 +74,9 @@ func main() {
 
 	// RPC mode: read commands from stdin, write events to stdout.
 	if args.RPCMode {
-		wispai.RunRPC(context.Background(), config, model, opts, nil, nil, os.Stdin, os.Stdout)
+		tools, handler := wispai.DefaultTools()
+		systemPrompt := wispai.BuildSystemPrompt()
+		wispai.RunRPC(context.Background(), config, model, opts, tools, handler, systemPrompt, os.Stdin, os.Stdout)
 		os.Exit(0)
 	}
 

@@ -89,15 +89,17 @@ func RunRPC(
 	opts StreamOptions,
 	tools []Tool,
 	handler ToolHandler,
+	initialSystemPrompt string,
 	in io.Reader,
 	out io.Writer,
 ) {
 	s := &rpcSession{
-		id:      rpcNewID(),
-		model:   model,
-		opts:    opts,
-		tools:   tools,
-		handler: handler,
+		id:           rpcNewID(),
+		model:        model,
+		opts:         opts,
+		tools:        tools,
+		handler:      handler,
+		systemPrompt: initialSystemPrompt,
 	}
 
 	var outMu sync.Mutex
