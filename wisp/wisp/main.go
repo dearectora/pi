@@ -26,8 +26,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load config from ~/.pi/agent/models.json (or PI_CODING_AGENT_DIR).
-	wispai.Reload()
 	config := wispai.GetConfig()
 
 	// Surface any models.json parse error early.
@@ -96,7 +94,7 @@ func main() {
 	msgCtx := &wispai.Context{
 		Messages: []wispai.ContextMessage{wispai.UserMsg(prompt)},
 	}
-	ch := wispai.Stream(ctx, model, msgCtx, &opts)
+	ch := wispai.Stream(ctx, config, model, msgCtx, &opts)
 
 	var exitCode int
 	var finalMsg *wispai.AssistantMessage
