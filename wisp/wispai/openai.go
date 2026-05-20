@@ -323,28 +323,61 @@ type sseUsage struct {
 
 // --- Request builder ---
 
-func buildChatRequest(model Model, msgCtx *Context, opts StreamOptions) ([]byte, error) {
-	type msg struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
-	}
+type reqMsg struct {
+	Role       string         `json:"role"`
+	Content    any            `json:"content,omitempty"`
+	ToolCalls  []reqToolCall  `json:"tool_calls,omitempty"`
+	ToolCallID string         `json:"tool_call_id,omitempty"`
+}
 
-	var messages []msg
+type reqToolCall struct {
+	ID       string      `json:"id"`
+	Type     string      `json:"type"`
+	Function reqFunction `json:"function"`
+}
+
+type reqFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+func buildChatRequest(model Model, msgCtx *Context, opts StreamOptions) ([]byte, error) {
+	var messages []reqMsg
 	if msgCtx.SystemPrompt != "" {
-		messages = append(messages, msg{Role: "system", Content: msgCtx.SystemPrompt})
+		messages = append(messages, reqMsg{Role: "system", Content: msgCtx.SystemPrompt})
 	}
 	for _, m := range msgCtx.Messages {
 		switch m.Role {
 		case "user":
-			messages = append(messages, msg{Role: "user", Content: m.Content})
+			messages = append(messages, reqMsg{Role: "user", Content: m.Content})
 		case "assistant":
-			var sb strings.Builder
+			w := reqMsg{Role: "assistant"}
+			var textBuf strings.Builder
 			for _, p := range m.Parts {
-				if p.Type == "text" {
-					sb.WriteString(p.Text)
+				switch p.Type {
+				case "text":
+					textBuf.WriteString(p.Text)
+				case "toolCall":
+					w.ToolCalls = append(w.ToolCalls, reqToolCall{
+						ID:   p.ID,
+						Type: "function",
+						Function: reqFunction{
+							Name:      p.Name,
+							Arguments: p.Arguments,
+						},
+					})
 				}
 			}
-			messages = append(messages, msg{Role: "assistant", Content: sb.String()})
+			if textBuf.Len() > 0 {
+				w.Content = textBuf.String()
+			}
+			messages = append(messages, w)
+		case "tool":
+			messages = append(messages, reqMsg{
+				Role:       "tool",
+				Content:    m.Content,
+				ToolCallID: m.ToolCallID,
+			})
 		}
 	}
 
@@ -361,6 +394,33 @@ func buildChatRequest(model Model, msgCtx *Context, opts StreamOptions) ([]byte,
 	}
 	if opts.MaxTokens != nil {
 		req["max_tokens"] = *opts.MaxTokens
+	}
+	if len(msgCtx.Tools) > 0 {
+		type toolFn struct {
+			Name        string          `json:"name"`
+			Description string          `json:"description,omitempty"`
+			Parameters  json.RawMessage `json:"parameters"`
+		}
+		type toolWire struct {
+			Type     string `json:"type"`
+			Function toolFn `json:"function"`
+		}
+		tools := make([]toolWire, 0, len(msgCtx.Tools))
+		for _, t := range msgCtx.Tools {
+			params := t.Parameters
+			if params == nil {
+				params = json.RawMessage(`{"type":"object","properties":{}}`)
+			}
+			tools = append(tools, toolWire{
+				Type: "function",
+				Function: toolFn{
+					Name:        t.Name,
+					Description: t.Description,
+					Parameters:  params,
+				},
+			})
+		}
+		req["tools"] = tools
 	}
 
 	return json.Marshal(req)

@@ -1,6 +1,9 @@
 package wispai
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // StopReason describes why an assistant message ended.
 type StopReason string
@@ -63,22 +66,41 @@ type AssistantMessage struct {
 	Timestamp    time.Time                    `json:"timestamp"`
 }
 
-// ContextMessage is one turn in the conversation sent to the LLM.
-type ContextMessage struct {
-	Role    string        // "user" or "assistant"
-	Content string        // for user messages
-	Parts   []ContentPart // for assistant messages
+// Tool describes a function the model can call.
+type Tool struct {
+	Name        string
+	Description string
+	Parameters  json.RawMessage // JSON Schema object describing the function parameters
 }
 
-// UserMsg is a convenience constructor for a user-role ContextMessage.
+// ContextMessage is one turn in the conversation sent to the LLM.
+type ContextMessage struct {
+	Role       string        // "user", "assistant", or "tool"
+	Content    string        // for user and tool messages
+	Parts      []ContentPart // for assistant messages
+	ToolCallID string        // for tool messages: the ID of the call being answered
+}
+
+// UserMsg constructs a user-role ContextMessage.
 func UserMsg(text string) ContextMessage {
 	return ContextMessage{Role: "user", Content: text}
+}
+
+// AssistantMsg constructs an assistant-role ContextMessage from a completed message.
+func AssistantMsg(msg *AssistantMessage) ContextMessage {
+	return ContextMessage{Role: "assistant", Parts: msg.Content}
+}
+
+// ToolResultMsg constructs a tool-role ContextMessage carrying a tool call result.
+func ToolResultMsg(toolCallID, content string) ContextMessage {
+	return ContextMessage{Role: "tool", Content: content, ToolCallID: toolCallID}
 }
 
 // Context is the full conversation context sent to the LLM.
 type Context struct {
 	SystemPrompt string
 	Messages     []ContextMessage
+	Tools        []Tool
 }
 
 // StreamOptions configures a call to the LLM.
