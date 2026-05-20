@@ -9,22 +9,76 @@ import (
 	"strings"
 )
 
-// ModelsPath returns the default path for the models configuration file.
-// It lives next to settings.json in the agent directory.
+// AgentDir returns the agent directory, respecting PI_CODING_AGENT_DIR.
+func AgentDir() string {
+	if d := os.Getenv("PI_CODING_AGENT_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".pi", "agent")
+}
+
+// ModelsPath returns the path for the models/config file.
 func ModelsPath() string {
 	return filepath.Join(AgentDir(), "models.json")
 }
 
-// modelsFileData is the result of parsing a models.json file.
-type modelsFileData struct {
-	Models      []Model
-	ProviderKeys map[string]string // provider id → apiKey from models.json
+// Config holds all configuration loaded from models.json.
+type Config struct {
+	DefaultProvider string
+	DefaultModel    string
+	Stream          *StreamDefaults
+	Retry           *RetrySettings
+	apiKeys         map[string]string
+	registry        *ModelRegistry
+	loadErr         error
+}
+
+// APIKey resolves the API key for a provider (case-insensitive).
+func (c *Config) APIKey(provider string) string {
+	if c.apiKeys != nil {
+		if key, ok := c.apiKeys[strings.ToLower(provider)]; ok && key != "" {
+			return key
+		}
+	}
+	return ""
+}
+
+// Registry returns the model registry.
+func (c *Config) Registry() *ModelRegistry { return c.registry }
+
+// LoadError returns any error encountered while loading models.json.
+func (c *Config) LoadError() error { return c.loadErr }
+
+// Resolve fills missing fields in opts from config defaults and returns
+// the complete StreamOptions to pass to a provider.
+func (c *Config) Resolve(opts *StreamOptions, model Model) StreamOptions {
+	var out StreamOptions
+	if opts != nil {
+		out = *opts
+	}
+	if out.APIKey == "" {
+		out.APIKey = c.APIKey(model.Provider)
+	}
+	if c.Stream != nil {
+		if out.Temperature == nil {
+			out.Temperature = c.Stream.Temperature
+		}
+		if out.MaxTokens == nil {
+			out.MaxTokens = c.Stream.MaxTokens
+		}
+	}
+	return out
 }
 
 // --- models.json wire types ---
 
 type modelsFile struct {
-	Providers map[string]providerConfig `json:"providers"`
+	DefaultProvider string                   `json:"defaultProvider,omitempty"`
+	DefaultModel    string                   `json:"defaultModel,omitempty"`
+	Stream          *StreamDefaults          `json:"stream,omitempty"`
+	Retry           *RetrySettings           `json:"retry,omitempty"`
+	Providers       map[string]providerConfig `json:"providers"`
 }
 
 type providerConfig struct {
@@ -35,13 +89,13 @@ type providerConfig struct {
 }
 
 type modelDefinition struct {
-	ID               string        `json:"id"`
-	Name             string        `json:"name,omitempty"`
-	BaseURL          string        `json:"baseUrl,omitempty"` // overrides provider baseUrl
-	ContextWindow    int           `json:"contextWindow,omitempty"`
-	MaxTokens        int           `json:"maxTokens,omitempty"`
-	Cost             *costJSON     `json:"cost,omitempty"`
-	SupportsThinking bool          `json:"supportsThinking,omitempty"`
+	ID               string    `json:"id"`
+	Name             string    `json:"name,omitempty"`
+	BaseURL          string    `json:"baseUrl,omitempty"`
+	ContextWindow    int       `json:"contextWindow,omitempty"`
+	MaxTokens        int       `json:"maxTokens,omitempty"`
+	Cost             *costJSON `json:"cost,omitempty"`
+	SupportsThinking bool      `json:"supportsThinking,omitempty"`
 }
 
 type costJSON struct {
@@ -49,30 +103,38 @@ type costJSON struct {
 	Output float64 `json:"output"`
 }
 
-// loadModelsFile reads and parses a models.json file.
-// Returns empty data without error if the file does not exist.
-func loadModelsFile(path string) (modelsFileData, error) {
+// loadConfig reads and parses a models.json file, returning a Config.
+// Returns an empty (but valid) Config without error if the file does not exist.
+func loadConfig(path string) *Config {
+	cfg := &Config{
+		registry: newRegistry(nil),
+		apiKeys:  make(map[string]string),
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return modelsFileData{}, nil
+		if !errors.Is(err, os.ErrNotExist) {
+			cfg.loadErr = err
 		}
-		return modelsFileData{}, err
+		return cfg
 	}
 
 	var f modelsFile
 	if err := json.Unmarshal(data, &f); err != nil {
-		return modelsFileData{}, fmt.Errorf("models.json: %w", err)
+		cfg.loadErr = fmt.Errorf("models.json: %w", err)
+		return cfg
 	}
 
-	result := modelsFileData{
-		ProviderKeys: make(map[string]string),
-	}
+	cfg.DefaultProvider = f.DefaultProvider
+	cfg.DefaultModel = f.DefaultModel
+	cfg.Stream = f.Stream
+	cfg.Retry = f.Retry
 
+	var models []Model
 	for providerID, prov := range f.Providers {
 		pid := strings.ToLower(providerID)
 		if prov.APIKey != "" {
-			result.ProviderKeys[pid] = prov.APIKey
+			cfg.apiKeys[pid] = prov.APIKey
 		}
 		for _, def := range prov.Models {
 			if def.ID == "" {
@@ -98,10 +160,11 @@ func loadModelsFile(path string) (modelsFileData, error) {
 			if def.Cost != nil {
 				m.Cost = ModelCost{Input: def.Cost.Input, Output: def.Cost.Output}
 			}
-			result.Models = append(result.Models, m)
+			models = append(models, m)
 		}
 	}
-	return result, nil
+	cfg.registry = newRegistry(models)
+	return cfg
 }
 
 // ModelRegistry is a queryable list of models.

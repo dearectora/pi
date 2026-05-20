@@ -13,12 +13,11 @@ go build -o wisp .
 
 ## Конфигурация
 
-Wisp читает два файла при запуске:
+Wisp читает единственный файл при запуске:
 
 | Файл | Назначение |
 |---|---|
-| `~/.pi/agent/settings.json` | API ключи, модель по умолчанию |
-| `~/.pi/agent/models.json` | Список моделей и провайдеров |
+| `~/.pi/agent/models.json` | Все настройки: провайдеры, модели, ключи, дефолты |
 
 Создайте папку если её нет:
 
@@ -30,47 +29,34 @@ mkdir -p ~/.pi/agent
 
 ## API ключи
 
-Ключи указываются только через файлы конфигурации. Два места:
-
-### `~/.pi/agent/settings.json`
-
-```json
-{
-  "defaultProvider": "openai",
-  "defaultModel": "gpt-4o-mini",
-  "apiKeys": {
-    "openai": "sk-...",
-    "deepseek": "sk-...",
-    "groq": "gsk_..."
-  }
-}
-```
-
-### `~/.pi/agent/models.json` — поле `apiKey` у провайдера
+Ключ указывается в `apiKey` поле провайдера в `models.json`:
 
 ```json
 {
   "providers": {
     "openai": {
-      "apiKey": "sk-...",
-      "models": [...]
+      "apiKey": "sk-..."
     }
   }
 }
 ```
 
-Если ключ задан в обоих файлах — `settings.json` побеждает.
-
 ---
 
-## Модели: `~/.pi/agent/models.json`
+## Конфигурация: `~/.pi/agent/models.json`
 
-Все модели описываются в этом файле. Без него wisp не запустится.
+Все настройки в одном файле. Без него wisp не запустится (нет моделей).
 
-### Минимальный пример
+### Полная схема
 
 ```json
 {
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-4o-mini",
+  "stream": {
+    "temperature": 0.7,
+    "maxTokens": 4096
+  },
   "providers": {
     "openai": {
       "apiKey": "sk-...",
@@ -88,13 +74,23 @@ mkdir -p ~/.pi/agent
 }
 ```
 
+### Поля верхнего уровня
+
+| Поле | Обязательное | Описание |
+|---|---|---|
+| `defaultProvider` | нет | Провайдер по умолчанию |
+| `defaultModel` | нет | Модель по умолчанию |
+| `stream.temperature` | нет | Температура генерации (0.0–2.0) |
+| `stream.maxTokens` | нет | Максимум токенов в ответе |
+| `providers` | **да** | Провайдеры и их модели |
+
 ### Поля провайдера
 
 | Поле | Обязательное | Описание |
 |---|---|---|
-| `baseUrl` | нет | URL API. Если не указан, модель должна задать свой |
 | `apiKey` | нет | API ключ провайдера |
-| `models` | да | Список моделей |
+| `baseUrl` | нет | URL API. Если не указан, модель должна задать свой |
+| `models` | **да** | Список моделей |
 
 ### Поля модели
 
@@ -117,6 +113,8 @@ mkdir -p ~/.pi/agent
 
 ```json
 {
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-4o-mini",
   "providers": {
     "openai": {
       "apiKey": "sk-...",

@@ -26,13 +26,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load settings and models (global ~/.pi/agent/settings.json +
-	// project .pi/settings.json + ~/.pi/agent/models.json).
-	wispai.ReloadSettings("", "")
-	settings := wispai.GetSettings()
+	// Load config from ~/.pi/agent/models.json (or PI_CODING_AGENT_DIR).
+	wispai.Reload()
+	config := wispai.GetConfig()
 
 	// Surface any models.json parse error early.
-	if err := wispai.GetLoadError(); err != nil {
+	if err := config.LoadError(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading models.json: %v\n", err)
 		os.Exit(1)
 	}
@@ -52,7 +51,7 @@ func main() {
 	}
 
 	// Resolve model.
-	model, err := resolveModel(args, settings)
+	model, err := resolveModel(args, config)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
@@ -63,14 +62,13 @@ func main() {
 		Temperature: args.Temperature,
 		MaxTokens:   args.MaxTokens,
 	}
-	opts := settings.Resolve(callerOpts, model)
+	opts := config.Resolve(callerOpts, model)
 
 	// Validate that we have an API key.
 	if opts.APIKey == "" {
 		fmt.Fprintf(os.Stderr,
 			"Error: no API key found for provider %q.\n"+
-				"Add it to ~/.pi/agent/settings.json under apiKeys\n"+
-				"or as \"apiKey\" in the provider entry in ~/.pi/agent/models.json.\n",
+				"Add it to ~/.pi/agent/models.json under the provider's \"apiKey\" field.\n",
 			model.Provider,
 		)
 		os.Exit(1)
@@ -121,10 +119,10 @@ func main() {
 //  1. --provider + --model  (exact match)
 //  2. --model only          (first match by id across all providers)
 //  3. --provider only       (first model for that provider)
-//  4. settings defaultProvider + defaultModel
+//  4. config defaultProvider + defaultModel
 //  5. first model in registry
-func resolveModel(args Args, settings *wispai.SettingsManager) (wispai.Model, error) {
-	registry := wispai.GetRegistry()
+func resolveModel(args Args, config *wispai.Config) (wispai.Model, error) {
+	registry := config.Registry()
 
 	if len(registry.All()) == 0 {
 		return wispai.Model{}, fmt.Errorf(
@@ -139,10 +137,10 @@ func resolveModel(args Args, settings *wispai.SettingsManager) (wispai.Model, er
 	provider := args.Provider
 	modelID := args.Model
 	if provider == "" {
-		provider = settings.Settings.DefaultProvider
+		provider = config.DefaultProvider
 	}
 	if modelID == "" {
-		modelID = settings.Settings.DefaultModel
+		modelID = config.DefaultModel
 	}
 
 	if provider != "" && modelID != "" {
@@ -168,8 +166,11 @@ func resolveModel(args Args, settings *wispai.SettingsManager) (wispai.Model, er
 func modelsJSONExample() string {
 	return strings.TrimSpace(`
 {
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-4o-mini",
   "providers": {
     "openai": {
+      "apiKey": "sk-...",
       "models": [
         {
           "id": "gpt-4o-mini",

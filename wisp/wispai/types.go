@@ -88,6 +88,20 @@ type StreamOptions struct {
 	MaxTokens   *int
 }
 
+// StreamDefaults are default streaming parameters from config.
+type StreamDefaults struct {
+	Temperature *float64 `json:"temperature,omitempty"`
+	MaxTokens   *int     `json:"maxTokens,omitempty"`
+}
+
+// RetrySettings controls request retry behaviour.
+type RetrySettings struct {
+	Enabled     *bool `json:"enabled,omitempty"`
+	MaxRetries  *int  `json:"maxRetries,omitempty"`
+	BaseDelayMs *int  `json:"baseDelayMs,omitempty"`
+	TimeoutMs   *int  `json:"timeoutMs,omitempty"`
+}
+
 // EventType identifies the kind of streaming event.
 type EventType string
 
